@@ -32,7 +32,7 @@ arg$len <- gsub('m',' Months',arg$len)
 arg$len <- gsub('d',' Days',arg$len)
 labels <- c()
 for (i in 1:length(arg$len)){
-	label <- paste0(arg$len[i],' @',arg$rate[i],'%')
+	label <- paste0(arg$len[i],' @',round(as.numeric(arg$rate[i]),2),'%')
 	labels <- c(labels,label)
 }	
 cd <- data.frame(Label = labels, Term.Length = arg$len, Term.Rate = as.numeric(arg$rate))
@@ -46,7 +46,7 @@ print_color(paste0('End of analysis: ',enddate,'\n'),'bred')
 
 #Define vectors that will store everything to be plotted
 valuevec <- c()
-timevec <- c()
+timediffvec <- c()
 labelvec <- c()
 
 #Simulate CD growth
@@ -55,10 +55,11 @@ for (i in cd$Label){
 	term <- cd[cd$Label == i,]$Term.Length
 	rate <- cd[cd$Label == i,]$Term.Rate
 	time <- startdate
+	timediff <- 0
 	#Run time steps
-	while (time < enddate){
+	while (time <= enddate){
 		valuevec <- c(valuevec, value)
-		timevec <- c(timevec, time)
+		timediffvec <- c(timediffvec, timediff)
 		labelvec <- c(labelvec, i)
 		#Vary time steps based on term length
 		if (grepl('Years', i)){
@@ -72,12 +73,13 @@ for (i in cd$Label){
 			time <- time + days(t)
 		}
 		value <- value + value*(rate/100)
+		timediff <- (startdate %--% time)/years(1)
 	}
 }
 print_color(paste0('====================CD Values====================\n'),'bcyan')
-pldf <- data.frame(CD = labelvec, Time = timevec, CD.Value = valuevec)
+pldf <- data.frame(CD = labelvec, Time.Years = timediffvec, CD.Value = valuevec)
 print(pldf)
 
 #Plot stuff
-ggplot(data = pldf, aes(x = Time, y = CD.Value))+geom_point(aes(colour=CD))+geom_vline(xintercept=(startdate+years(10)))+geom_vline(xintercept=(startdate+years(20)))+geom_vline(xintercept=(startdate+years(30)))
-ggplot(data = pldf, aes(x = Time, y = CD.Value))+geom_point(aes(shape=CD))+geom_vline(xintercept=(startdate+years(10)))+geom_vline(xintercept=(startdate+years(20)))+geom_vline(xintercept=(startdate+years(30)))#this plot is easier for someone who is colorblind to interpret
+ggplot(data = pldf, aes(x = Time.Years, y = CD.Value))+geom_point(size = 1, aes(colour=CD))+labs(title=paste0('Growth of CD over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)
+ggplot(data = pldf, aes(x = Time.Years, y = CD.Value))+geom_point(size = 1, aes(shape=CD))+labs(title=paste0('Growth of CD over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)#this plot is easier for someone who is colorblind to interpret
