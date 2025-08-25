@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-#Above line allows code to be run using ./CDCompare.R in terminal
+#Above line allows code to be run using ./CompoundCompare.R in terminal
 
 #Libraries and what they are used for commented next to them
 library(dplyr)#as_tibble and many other dataframe manipulation shortcuts
