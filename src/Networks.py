@@ -32,8 +32,8 @@ class AdjMatrix:
     #Defining Update method
     def Update(self, edges):
         for index, row in edges.iterrows():
-            self.Adf.loc[row['To']][row['From']] = self.Adf.loc[row['To']][row['From']] + row['Weight']
-            print(self.Adf)
+            self.Adf.loc[row['To']][row['From']] += row['Weight']
+        print(self.Adf)
         return self.Adf
 
     #Defining convert to stochastic matrix method
@@ -45,6 +45,7 @@ class AdjMatrix:
                 self.Sdf[series_name] = 1/len(self.nodes)
             else:
                 self.Sdf[series_name] = self.Sdf[series_name].apply(lambda x: x/sum(series))
+        print(self.Sdf)
         return self.Sdf
 
     #Defining convert to google matrix method
@@ -53,12 +54,23 @@ class AdjMatrix:
         normvec = pd.Series(1/len(self.nodes), index = self.nodes)
         for series_name, series in self.Gdf.items():
             self.Gdf[series_name] = alpha * self.Gdf[series_name] + (1 - alpha) * normvec
+        print(self.Gdf)
         return self.Gdf
 
     #Defining PageRank method to get rank for each team
-    def PageRank(self):
+    def PageRank(self, maxiter = 100):
         Gmat = self.Gdf.copy().to_numpy()
-        self.Rank = Gmat.dot(self.Rank)
+        niter = 0
+        while niter < maxiter:
+            temp = pd.Series(Gmat.dot(self.Rank.copy()), index = self.nodes)
+            if temp.round(6).equals(self.Rank.round(6)):
+                self.Rank == temp
+                break
+            else:
+                self.Rank = temp
+                niter += 1
+        print('Number of iterations needed: '+str(niter))
+        print(self.Rank)
         return self.Rank
 
 
