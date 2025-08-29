@@ -44,3 +44,77 @@ print('=====================Google Matrix====================')
 print(test.Gdf)
 print('=======================Team Rank======================')
 print(test.Rank)
+
+print('======================================================')
+print('=====================TEST TRANSPOSE===================')
+print('======================================================')
+tedges = testedges.rename(columns = {'From':'To', 'To':'From'})
+print(tedges)
+t = net.AdjMatrix(testnodes, tedges)
+t.Update(edges = tedges)
+t.Stochastic()
+t.Google(alpha = .85)
+t.PageRank()
+
+print('======================================================')
+print('====================COMPARE RATINGS===================')
+print('======================================================')
+print('Winner -> Loser')
+testrank = test.Rank
+testrating = testrank.apply(lambda x: -(x - np.mean(testrank))/np.std(testrank))
+print(testrating.sort_values(ascending = False))
+print('Loser -> Winner')
+trank = t.Rank
+trating = trank.apply(lambda x: (x - np.mean(trank))/np.std(trank))
+print(trating.sort_values(ascending = False))
+print('Combined Rating')
+crating = testrating + trating
+print(crating.sort_values(ascending = False))
+
+print('======================================================')
+print('=====================UNIT WEIGHTS=====================')
+print('======================================================')
+unitedges = testedges
+unitedges['Weight'] = 1
+print(unitedges)
+unit = net.AdjMatrix(testnodes, unitedges)
+unit.Update(edges = unitedges)
+unit.Stochastic()
+unit.Google(alpha = .85)
+unit.PageRank()
+unitrank = unit.Rank
+unitrating = unitrank.apply(lambda x: -(x - np.mean(unitrank))/np.std(unitrank))
+print(unitrating.sort_values(ascending = False))
+
+print('======================================================')
+print('=====================UNIT TRANSPOSE===================')
+print('======================================================')
+tunitedges = tedges
+tunitedges['Weight'] = 1
+print(tunitedges)
+tunit = net.AdjMatrix(testnodes, tunitedges)
+tunit.Update(edges = tunitedges)
+tunit.Stochastic()
+tunit.Google(alpha = .85)
+tunit.PageRank()
+tunitrank = tunit.Rank
+tunitrating = tunitrank.apply(lambda x: (x - np.mean(tunitrank))/np.std(tunitrank))
+print(tunitrating.sort_values(ascending = False))
+cunitrating = unitrating + tunitrating
+print(cunitrating.sort_values(ascending = False))
+
+print('======================================================')
+print('====================COMPARE RATINGS===================')
+print('======================================================')
+print('Winner -> Loser')
+print(testrating.sort_values(ascending = False))
+print('Loser -> Winner')
+print(trating.sort_values(ascending = False))
+print('Combined Rating')
+print(crating.sort_values(ascending = False))
+print('Unit: Winner -> Loser')
+print(unitrating.sort_values(ascending = False))
+print('Unit: Loser -> Winner')
+print(tunitrating.sort_values(ascending = False))
+print('Unit: Combined Rating')
+print(cunitrating.sort_values(ascending = False))
