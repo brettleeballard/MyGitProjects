@@ -1,4 +1,4 @@
-# MyGitProjects
+#MyGitProjects
 Here lies code for my various projects
 
 #Under src
@@ -15,3 +15,7 @@ CompoundCompare.R allows one to compare different compounding terms given the ra
 
 #Under SportsRatings
 Will use my knowledge of networks and positive stochastic matrix properties to attempt to rate teams through the Google PageRank algorithm using various matrix designs and compare different machine learning algorithms for predicting game outcomes
+
+For Networks Stuff:
+Winner -> Loser = Strength of Losses 
+Loser -> Winner = Strength of Wins

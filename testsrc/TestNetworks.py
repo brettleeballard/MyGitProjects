@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#Above line allows code to be run in terminal if desired using ./testNetworks.py
+#Above line allows code to be run in terminal if desired using ./TestNetworks.py
 
 import pandas as pd
 import numpy as np
@@ -68,7 +68,7 @@ trank = t.Rank
 trating = trank.apply(lambda x: (x - np.mean(trank))/np.std(trank))
 print(trating.sort_values(ascending = False))
 print('Combined Rating')
-crating = testrating + trating
+crating = .6 * testrating + .4 * trating
 print(crating.sort_values(ascending = False))
 
 print('======================================================')
@@ -100,7 +100,7 @@ tunit.PageRank()
 tunitrank = tunit.Rank
 tunitrating = tunitrank.apply(lambda x: (x - np.mean(tunitrank))/np.std(tunitrank))
 print(tunitrating.sort_values(ascending = False))
-cunitrating = unitrating + tunitrating
+cunitrating = .6 * unitrating + .4 * tunitrating
 print(cunitrating.sort_values(ascending = False))
 
 print('======================================================')
