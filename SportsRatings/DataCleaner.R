@@ -4,6 +4,7 @@
 #Libraries and what they are used for commented next to them
 library(dplyr)#as_tibble and many other dataframe manipulation shortcuts
 library(insight)#print_color function
+library(ggplot2)#plot related
 library(argparser)#argument parser stuff
 library(hash)#used to emulate python dictionaries in R
 library(lubridate)#used for datetime stuff
@@ -68,8 +69,7 @@ for (sport in arg$s){
 					mutate(Away.Pts = as.numeric(ifelse(Unnamed..5 == '@',Pts,Pts.1))) %>% 
 					mutate(Home.Pts = as.numeric(ifelse(Unnamed..5 == '@',Pts.1,Pts))) %>%
 					select(all_of(cols)) 
-			}
-
+			}#end of nfl formatting
 		}
 
 		print_color(paste0('================================================================================\n'),'bgreen')
@@ -77,13 +77,42 @@ for (sport in arg$s){
 		print_color(paste0('================================================================================\n'),'bgreen')
 		print(head(df))
 		datasets <- append(datasets, list(df))
-	}
+	}#end of year loop
+	print_color(paste0('================================================================================\n'),'bcyan')
+	print_color(paste0('==============================PLOT HISTORICAL DATA==============================\n'),'bcyan')
+	print_color(paste0('================================================================================\n'),'bcyan')
+	#Merge data from all years into a single dataframe
+	data <- Reduce(function(x,y) merge(x,y,all = TRUE), datasets)
+	data <- data %>%
+		mutate(Home.Spread = Away.Pts - Home.Pts) %>%
+		mutate(Game.Spread = abs(Home.Spread)) %>%
+		mutate(Game.Total = Away.Pts + Home.Pts)
+
+	#Removing any incomplete game
+	pldf <- data %>%
+		na.omit(data)
+		
+	#Plot spreads and totals 
+	pdf(paste0('historicalplots/',sport,'-Historical-Games.pdf'))
+	print(ggplot(data=pldf, aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',min(pldf$Season)))+geom_vline(xintercept = mean(pldf$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf$Home.Spread),1),'\nStd: ',round(sd(pldf$Home.Spread),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-10,], aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',max(pldf$Season)-10))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-5,], aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',max(pldf$Season)-5))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),1)),color='blue'))
+
+	print(ggplot(data=pldf, aes(x=Game.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Spreads Since ',min(pldf$Season)))+geom_vline(xintercept = mean(pldf$Game.Spread), color = 'blue')+annotate('text',x=mean(pldf$Game.Spread),y=0,label=paste0('Mn: ',round(mean(pldf$Game.Spread),1),'\nStd: ',round(sd(pldf$Game.Spread),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-10,], aes(x=Game.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Spreads Since ',max(pldf$Season)-10))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Spread),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-5,], aes(x=Game.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Spreads Since ',max(pldf$Season)-5))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Spread),1)),color='blue'))
+	
+	print(ggplot(data=pldf, aes(x=Game.Total))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Totals Since ',min(pldf$Season)))+geom_vline(xintercept = mean(pldf$Game.Total), color = 'blue')+annotate('text',x=mean(pldf$Game.Total),y=0,label=paste0('Mn: ',round(mean(pldf$Game.Total),1),'\nStd: ',round(sd(pldf$Game.Total),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-10,], aes(x=Game.Total))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Totals Since ',max(pldf$Season)-10))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Total), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Total),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Total),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-10,]$Game.Total),1)),color='blue'))
+	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-5,], aes(x=Game.Total))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Game Totals Since ',max(pldf$Season)-5))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Total), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Total),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Total),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-5,]$Game.Total),1)),color='blue'))
+	
+	dev.off()
+
 	print_color(paste0('================================================================================\n'),'bviolet')
 	print_color(paste0('==================================MERGED DATA===================================\n'),'bviolet')
 	print_color(paste0('================================================================================\n'),'bviolet')
-	#Merge data from all years into a single dataframe
-	data <- Reduce(function(x,y) merge(x,y,all = TRUE), datasets)
+	#Output data
 	print(as_tibble(data))
 	write.csv(data, paste0('DATA/',sport,'.csv'), row.names = FALSE)
-}
+}#end of sports loop
 
