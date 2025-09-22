@@ -3,6 +3,7 @@
 
 #Libraries and what they are used for commented next to them
 library(dplyr)#as_tibble and many other dataframe manipulation shortcuts
+library(tidyr)#unnest function
 library(insight)#print_color function
 library(ggplot2)#plot related
 library(argparser)#argument parser stuff
@@ -88,12 +89,33 @@ for (sport in arg$s){
 		mutate(Game.Spread = abs(Home.Spread)) %>%
 		mutate(Game.Total = Away.Pts + Home.Pts)
 
+	#Change team names to shorthand versions
+	data$Home <- sapply(data$Home, getKeys, dict = teams)
+	data$Away <- sapply(data$Away, getKeys, dict = teams)
+	data <- data %>% unnest(c(Away, Home))#Used to unlist names since they get saved as a named list
+	
+	#Testing to make sure no NAs left
+	nadf <- data %>%
+		filter(is.na(Home) | is.na(Away))
+	if (nrow(nadf) > 1){
+		print(as.data.frame(nadf))
+		print_color(paste0('!!!!!!!!!!!!!!!!!!!!!!!SOME TEAM NAMES NOT IN DICTIONARY!!!!!!!!!!!!!!!!!!!!!!!!\n'),'bred')
+		break
+	}
+
+
 	#Removing any incomplete game
 	pldf <- data %>%
 		na.omit(data)
+
+	#Outputting means for each season before plotting histograms for since 2000, last ten seasons, and last five seasons
+	summ <- pldf %>%
+		group_by(Season) %>%
+		summarize(Mean.Home.Spread = mean(Home.Spread), Mean.Game.Spread = mean(Game.Spread), Mean.Game.Total = mean(Game.Total)) %>%
+		print()
 		
 	#Plot spreads and totals 
-	pdf(paste0('historicalplots/',sport,'-Historical-Games.pdf'))
+	pdf(paste0('historicaltrends/',sport,'-Historical-Trends.pdf'))
 	print(ggplot(data=pldf, aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',min(pldf$Season)))+geom_vline(xintercept = mean(pldf$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf$Home.Spread),1),'\nStd: ',round(sd(pldf$Home.Spread),1)),color='blue'))
 	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-10,], aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',max(pldf$Season)-10))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-10,]$Home.Spread),1)),color='blue'))
 	print(ggplot(data=pldf[pldf$Season > max(pldf$Season)-5,], aes(x=Home.Spread))+geom_histogram(alpha = .5, binwidth = 2)+labs(title=paste0('Historical Home Spreads Since ',max(pldf$Season)-5))+geom_vline(xintercept = mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread), color = 'blue')+annotate('text',x=mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),y=0,label=paste0('Mn: ',round(mean(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),1),'\nStd: ',round(sd(pldf[pldf$Season > max(pldf$Season)-5,]$Home.Spread),1)),color='blue'))

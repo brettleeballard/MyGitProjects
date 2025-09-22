@@ -15,7 +15,8 @@ TeamNames <- function(sport){
 		teams[['BUF']] <- c('Buffalo Bills')
 		teams[['CAR']] <- c('Carolina Panthers')
 		teams[['CHI']] <- c('Chicago Bears')
-		teams[['CIN']] <- c('Cincinati Bengals')
+		teams[['CIN']] <- c('Cincinnati Bengals')
+		teams[['CLE']] <- c('Cleveland Browns')
 		teams[['DAL']] <- c('Dallas Cowboys')
 		teams[['DEN']] <- c('Denver Broncos')
 		teams[['DET']] <- c('Detroit Lions')
@@ -42,4 +43,18 @@ TeamNames <- function(sport){
 		teams[['WAS']] <- c('Washington Redskins', 'Washington Football Team', 'Washington Commanders')
 	}
 	return(teams)
+}
+
+#Function to get key that contains the value
+getKeys <- function(dict, value){
+	dictkeys <- keys(dict)
+	#Loop through keys and find key(s) that contain value
+      	keys <- c()	
+	for (k in dictkeys){
+		temp <- dict[[k]]
+		if (value %in% temp){
+			keys <- c(keys,k)
+		}
+	}
+	return(keys)
 }
