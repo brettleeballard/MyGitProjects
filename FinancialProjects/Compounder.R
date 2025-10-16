@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-#Above line allows code to be run using ./CompoundCompare.R in terminal
+#Above line allows code to be run using ./Compounder.R in terminal
 
 #Libraries and what they are used for commented next to them
 library(dplyr)#as_tibble and many other dataframe manipulation shortcuts
@@ -8,21 +8,23 @@ library(ggplot2)#plot related
 library(argparser)#argument parser stuff
 library(lubridate)#time stuff
 
-#Code allows one to compare multiple CD's assuming they all get renewed with the same terms
+#Code allows one to compare multiple accounts assuming they all get renewed with the same terms
 
 #Gathers both the length of contract and interest rate
 #Can also change starting value if you want more realistic projection 
-parser <- arg_parser('CD Inputs')
-parser <- add_argument(parser, '--start', help = 'initial CD deposit: default is 1000',nargs='*',default=1000)
-parser <- add_argument(parser, '--len', help = 'length of CD contract: put d,m,y at end of number to indicate whether it is in days,months,years',nargs='*')
-parser <- add_argument(parser, '--rate', help = 'CD interest rate',nargs='*')
+parser <- arg_parser('Account Inputs')
+parser <- add_argument(parser, '--start', help = 'initial account deposit: default is 1000',nargs='*',default=1000)
+parser <- add_argument(parser, '--len', help = 'account compound length: put d,m,y at end of number to indicate whether it is in days,months,years',nargs='*')
+parser <- add_argument(parser, '--rate', help = 'average account rate of growth for compound length',nargs='*')
+parser <- add_argument(parser, '--contr', help = 'recurring account contribution',nargs='*')
 arg <- parse_args(parser)
 
 initial <- as.numeric(arg$start)
 
-#Dataframe containing all of the CD values
+#Dataframe containing all of the account values
 arg$len <- c(unlist(strsplit(arg$len, ',')))
 arg$rate <- c(unlist(strsplit(arg$rate, ',')))
+arg$contr <- c(unlist(strsplit(arg$contr, ',')))
 if (length(arg$len) != length(arg$rate)){
 	print_color(paste0('DID NOT INPUT SAME NUMBER OF TERM LENGTHS AND RATES\n'),'bred')
 	break
@@ -35,10 +37,10 @@ for (i in 1:length(arg$len)){
 	label <- paste0(arg$len[i],' @',round(as.numeric(arg$rate[i]),2),'%')
 	labels <- c(labels,label)
 }	
-cd <- data.frame(Label = labels, Term.Length = arg$len, Term.Rate = as.numeric(arg$rate))
-print(as_tibble(cd))
+acc <- data.frame(Label = labels, Term.Length = arg$len, Term.Rate = as.numeric(arg$rate), Account.Contributions = as.numeric(arg$contr))
+print(as_tibble(acc))
 
-#Timeframe for CD simulation
+#Timeframe for account simulation
 startdate <- Sys.Date()
 print_color(paste0('Beginning of analysis: ',startdate,'\n'),'bgreen')
 enddate <- startdate + years(40)
@@ -49,11 +51,12 @@ valuevec <- c()
 timediffvec <- c()
 labelvec <- c()
 
-#Simulate CD growth
-for (i in cd$Label){
+#Simulate account growth
+for (i in acc$Label){
 	value <- initial
-	term <- cd[cd$Label == i,]$Term.Length
-	rate <- cd[cd$Label == i,]$Term.Rate
+	term <- acc[acc$Label == i,]$Term.Length
+	rate <- acc[acc$Label == i,]$Term.Rate
+	contr <- acc[acc$Label == i,]$Account.Contributions
 	time <- startdate
 	timediff <- 0
 	#Run time steps
@@ -72,14 +75,13 @@ for (i in cd$Label){
 			t <- as.numeric(sub(' Days','',term))
 			time <- time + days(t)
 		}
-		value <- value + value*(rate/100)
+		value <- value + value*(rate/100) + contr 
 		timediff <- (startdate %--% time)/years(1)
 	}
 }
-print_color(paste0('====================CD Values====================\n'),'bcyan')
-pldf <- data.frame(CD = labelvec, Time.Years = timediffvec, CD.Value = valuevec)
+print_color(paste0('==================Account Values=================\n'),'bcyan')
+pldf <- data.frame(Account = labelvec, Time.Years = timediffvec, Account.Value = valuevec)
 print(pldf)
 
 #Plot stuff
-ggplot(data = pldf, aes(x = Time.Years, y = CD.Value))+geom_point(size = 1, aes(colour=CD))+labs(title=paste0('Growth of CD over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)
-ggplot(data = pldf, aes(x = Time.Years, y = CD.Value))+geom_point(size = 1, aes(shape=CD))+labs(title=paste0('Growth of CD over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)#this plot is easier for someone who is colorblind to interpret
+ggplot(data = pldf, aes(x = Time.Years, y = Account.Value))+geom_point(size = 1, aes(colour = Account, shape = Account))+labs(title=paste0('Growth of Account over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)
