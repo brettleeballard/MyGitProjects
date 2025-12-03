@@ -85,3 +85,4 @@ print(pldf)
 
 #Plot stuff
 ggplot(data = pldf, aes(x = Time.Years, y = Account.Value))+geom_point(size = 1, aes(colour = Account, shape = Account))+labs(title=paste0('Growth of Account over 40 years with starting value of ',initial))+geom_vline(xintercept=10)+geom_vline(xintercept=20)+geom_vline(xintercept=30)
+ggsave(file=paste0('BasicCompounderPlot.pdf'), path=paste0('plots/'))

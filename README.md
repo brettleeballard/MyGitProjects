@@ -11,7 +11,9 @@ Will keep code here that is used to test the src scripts
 Will have my webscraping code for the various projects under one directory
 
 #Under FinancialProjects
-Compounder.R allows one to compare different compounding terms given the rate, length, and recurring contribution. It does assume that these parameters stay consistent over the period. Will add features to allow for a random change to the rates that will be distributed according to some probability distribution.
+BasicCompounder.R allows one to compare different compounding terms given the rate, length, and recurring contribution. It does assume that these parameters stay consistent over the period.
+DataCleaner.R cleans and outputs useful metrics from daily price data for certain tickers stored in the rawdata file that I will try to keep updated regularly
+Can use those metrics and data to simulate how a portfolio grows using a monte carlo simulation with brownian motion 
 
 #Under SportsRatings
 Will use my knowledge of networks and positive stochastic matrix properties to attempt to rate teams through the Google PageRank algorithm using various matrix designs and compare different machine learning algorithms for predicting game outcomes
