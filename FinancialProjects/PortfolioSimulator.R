@@ -18,8 +18,9 @@ library(yfR)#collect data from yahoo finance
 parser <- arg_parser('Account Inputs')
 parser <- add_argument(parser, '--initial', help = 'initial account deposit: default is 10000',default=10000)
 parser <- add_argument(parser, '--nyrs', help = 'number of years to simulate: default is 10',default=10)
-parser <- add_argument(parser, '--nsims', help = 'number of simulations: default is 1000',default=1000)
+parser <- add_argument(parser, '--nsims', help = 'number of simulations: default is 20',default=20)
 parser <- add_argument(parser, '--tickers', help = 'tickers to use: default are Vangaurd ETFs that I plan to hold',default=c('default'))
+parser <- add_argument(parser, '--weights', help = 'portfoloio weights for each ticker: default is equal',default=c('eq'))
 arg <- parse_args(parser)
 
 initial <- as.numeric(arg$initial)
@@ -32,10 +33,19 @@ today <- today()
 #Setting parameters
 if (arg$tickers == 'default'){
 	TICKERS <- c('VOO','VOOG','VONG','MGK','VGT')
-	PORTFOLIO.WEIGHTS <- c(.1,.15,.25,.25,.2)#leaving 5% of the portfolio for cash/trading
+	PORTFOLIO.WEIGHTS <- c(.15,.15,.25,.25,.2)#leaving 5% of the portfolio for cash/trading
 }else {
 	TICKERS <- strsplit(arg$tickers, ',')[[1]]
-	PORTFOLIO.WEIGHTS <- rep(1/length(TICKERS), length(TICKERS))#Assuming equal weights for now but will add more flexibility later
+	if (grepl('eq',arg$weights)){
+		PORTFOLIO.WEIGHTS <- rep(1/length(TICKERS), length(TICKERS))#Assuming equal weights for now but will add more flexibility later
+	}else {
+		PORTFOLIO.WEIGHTS <- sapply(strsplit(arg$weights,',')[[1]], function(x) as.numeric(x))
+		#Check that weights do not exceed 1
+		if (sum(PORTFOLIO.WEIGHTS) != 1){
+			print_color(paste0('!!!!!!!!!!!!!!!!!!WEIGHTS DO NOT SUM TO 1: INPUT NEW WEIGHTS!!!!!!!!!!!!!!!!!!!!\n'),'bred')
+			break
+		}
+	}
 }
 
 holdings <- data.frame(Ticker = TICKERS, Weight = PORTFOLIO.WEIGHTS)
@@ -136,26 +146,40 @@ print(corr)
 sharesvec <- c()
 for (t in TICKERS){
 	shares <- (initial*holdings[holdings$Ticker == t,]$Weight)/(holdings[holdings$Ticker == t,]$Ticker.Start)
-	sharesvec <- c(sharesvec, round(shares,0))
+	sharesvec <- c(sharesvec, round(shares))
 }
 holdings$Shares <- sharesvec
 print(holdings)
 
 #Check that rounding shares didn't exceed/udershot initial value and if so then remove/add smallest priced ticker 
 total <- sum(holdings$Shares*holdings$Ticker.Start)
-minhold <- holdings[holdings$Ticker.Start == min(holdings$Ticker.Start),'Ticker']
-if (total > initial*.95){
-	print_color(paste0('!!!!!!!!!!!INITIAL VALUE SURPASSED: REMOVING SMALLEST PRICED HOLDING!!!!!!!!!!!!\n'),'bred')
-	while (total > initial*.95){
-		holdings[holdings$Ticker == minhold,'Shares'] <- holdings[holdings$Ticker == minhold,'Shares'] - 1
+temp <- holdings[order(holdings$Ticker.Start),]
+
+if (total > initial){
+	print_color(paste0('!!!!!!INITIAL VALUE SURPASSED: REMOVING SMALLEST PRICED HOLDINGS IN ORDER!!!!!!!\n'),'bred')
+	count <- 1
+	while (total > initial){
+		trimhold <- temp[count,'Ticker']
+		holdings[holdings$Ticker == trimhold,'Shares'] <- holdings[holdings$Ticker == trimhold,'Shares'] - 1
 		total <- sum(holdings$Shares*holdings$Ticker.Start)
+		count <- count + 1
 	}
 }else {
 	print_color(paste0('!!!!!!!!!!!!!!!!!!!!!!!!!!!INITIAL VALUE UNDERSHOT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'),'bgreen')
-	while (total <= (initial*.95 - min(holdings$Ticker.Start))){
-		print_color(paste0('!!!!!!!!!!!INITIAL VALUE UNDERSHOT: ADDING SMALLEST PRICED HOLDING!!!!!!!!!!!!!!\n'),'bgreen')
-		holdings[holdings$Ticker == minhold,'Shares'] <- holdings[holdings$Ticker == minhold,'Shares'] + 1
+	diff <- initial - total
+	while (min(temp$Ticker.Start) <= diff){
+		print_color(paste0('!!!!!!INITIAL VALUE UNDERSHOT: ADDING SMALLEST PRICED HOLDINGS IN ORDER!!!!!!!!!\n'),'bgreen')
+		addholds <- c(temp[1,'Ticker'])
+		for (i in 2:length(temp$Ticker)){
+			if (sum(temp$Ticker.Start[1:i]) <= diff){
+				addholds <- c(addholds, temp[i,'Ticker'])
+			}
+		}
+		for (t in addholds){
+			holdings[holdings$Ticker == t,'Shares'] <- holdings[holdings$Ticker == t,'Shares'] + 1
+		}
 		total <- sum(holdings$Shares*holdings$Ticker.Start)
+		diff <- initial - total
 	}
 }
 
