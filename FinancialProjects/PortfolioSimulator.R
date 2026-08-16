@@ -21,6 +21,7 @@ parser <- add_argument(parser, '--nyrs', help = 'number of years to simulate: de
 parser <- add_argument(parser, '--nsims', help = 'number of simulations: default is 20',default=20)
 parser <- add_argument(parser, '--tickers', help = 'tickers to use: default are Vangaurd ETFs that I plan to hold',default=c('default'))
 parser <- add_argument(parser, '--weights', help = 'portfoloio weights for each ticker: default is equal',default=c('eq'))
+parser <- add_argument(parser, '--divs', help = 'whether to include dividends in analysis: default is TRUE',default=TRUE)
 arg <- parse_args(parser)
 
 initial <- as.numeric(arg$initial)
@@ -33,11 +34,11 @@ today <- today()
 #Setting parameters
 if (arg$tickers == 'default'){
 	TICKERS <- c('VOO','VOOG','VONG','MGK','VGT')
-	PORTFOLIO.WEIGHTS <- c(.15,.15,.25,.25,.2)#leaving 5% of the portfolio for cash/trading
+	PORTFOLIO.WEIGHTS <- c(.15,.15,.25,.25,.2)
 }else {
 	TICKERS <- strsplit(arg$tickers, ',')[[1]]
 	if (grepl('eq',arg$weights)){
-		PORTFOLIO.WEIGHTS <- rep(1/length(TICKERS), length(TICKERS))#Assuming equal weights for now but will add more flexibility later
+		PORTFOLIO.WEIGHTS <- rep(1/length(TICKERS), length(TICKERS))
 	}else {
 		PORTFOLIO.WEIGHTS <- sapply(strsplit(arg$weights,',')[[1]], function(x) as.numeric(x))
 		#Check that weights do not exceed 1
@@ -101,9 +102,62 @@ print_color(paste0('============================================================
 #Collecting data from yahoo finance
 df <- yf_get(TICKERS, first_date = today - years(20), last_date = today, freq_data = 'daily', thresh_bad_data = .5)#Allowing for tickers that have at least 10 years worth of data over a 20 year period
 df <- df %>%
-	select(c('ticker','ref_date','price_open','price_high','price_low','price_close','volume')) %>%
-	rename(Tickers = ticker, Date = ref_date, Open = price_open, High = price_high, Low = price_low, Close = price_close, Volume = volume) %>%
+	select(c('ticker','ref_date','price_open','price_high','price_low','price_close','price_adjusted','volume')) %>%
+	rename(Tickers = ticker, Date = ref_date, Open = price_open, High = price_high, Low = price_low, Close = price_close, Adj.Close = price_adjusted, Volume = volume) %>%
 	print()
+
+if (arg$divs){
+	#Collect dividend information
+	divdata <- data.frame(Tickers = TICKERS, Yield = rep(0,length(TICKERS)), Frequency = rep(0,length(TICKERS)), Frequency.Label = rep('Irregular',length(TICKERS)))
+	for (t in TICKERS){
+		#TryCatch for tickers that do not have dividends
+		tryCatch(
+			expr = {
+				divid <- yf_get_dividends(t, first_date = today - years(5), last_date = today)#Getting dividends in last 5 years for tickers if applicable
+				print(divid)
+
+				#Categorize common frequencies for simulations
+				divfreq <- round(length(divid$dividend) / 5)
+				divdata[divdata$Tickers == t, 'Frequency'] <- divfreq
+
+				if (divfreq == 1){
+					divdata[divdata$Tickers == t, 'Frequency.Label'] <- 'Annually'
+				}else if (divfreq == 2){
+					divdata[divdata$Tickers == t, 'Frequency.Label'] <- 'Semi-Annually'
+				}else if (divfreq == 4){
+					divdata[divdata$Tickers == t, 'Frequency.Label'] <- 'Quarterly'
+				}else if (divfreq == 12){
+					divdata[divdata$Tickers == t, 'Frequency.Label'] <- 'Monthly'
+				}else {
+					divdata[divdata$Tickers == t, 'Frequency.Label'] <- 'Irregular'
+				}
+				
+				#Calculate forward dividend yield for the last five years and trailing dividend yield for the last three years
+				forwyield <- c()
+				trailyield <- c()
+				for (date in divid$ref_date){
+					paydiv <- as.numeric(divid[divid$ref_date == date,'dividend'])
+					dayclose <- as.numeric(df[(df$Tickers == t & df$Date == date),'Close'])
+					forwyield <- c(forwyield, (paydiv * divfreq)/dayclose)
+					if (date > (today - years(3))){
+						traildata <- divid %>%
+								filter(ref_date <= date) 
+						traildata <- tail(traildata,4)
+						trailyield <- c(trailyield, sum(traildata$dividend)/dayclose)
+					}
+				}
+				print(mean(forwyield))
+				print(mean(trailyield))
+				divdata[divdata$Tickers == t, 'Yield'] <- mean(c(mean(forwyield),mean(trailyield)))
+				
+			},
+			error = function(e){
+				print_color(paste0('!!!!!!!!!!!!!!!!!!!!!!!!!',t,' DOES NOT HAVE DIVIDENDS!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'),'bred')
+			}
+		)
+	}
+	print(divdata)
+}
 
 #Add more portfolio specific things to holdings dataframe
 tstart <- c()
@@ -136,7 +190,13 @@ print(as_tibble(holdings))
 #Merging gains data so that I can get correlations between gains
 allgains <- Reduce(function(x,y) merge(x,y,all = TRUE), gainsdata)
 allgains <- allgains %>% drop_na()
-corr <- as.data.frame(cor(allgains[,TICKERS]))
+if (length(TICKERS) > 1){
+	corr <- as.data.frame(cor(allgains[,TICKERS]))
+}else {
+	corr <- data.frame('TEMP' = 1)
+	colnames(corr) <- TICKERS[[1]]
+	row.names(corr) <- TICKERS[[1]]
+}
 print(corr)
 
 ##############################################################################################################
@@ -193,35 +253,112 @@ for (t in TICKERS){
 	portfolio[[t]] <- holdings[holdings$Ticker == t,'Shares']*holdings[holdings$Ticker == t,'Ticker.Start']
 }
 print(portfolio)
-ndays <- simlength*delT
+
+#Starting dividends information
+if (arg$divs){
+	dividends <- data.frame(Day = c(0), Total = c(0))
+	for (t in TICKERS){
+		dividends[[t]] <- c(0)
+	}
+	print(dividends)
+}
 
 #Simulating the portfolio
 print_color(paste0('================================================================================\n'),'bgreen')
 print_color(paste0('====================Simulating Possible Portfolio Futures=======================\n'),'bgreen')
 print_color(paste0('================================================================================\n'),'bgreen')
 #Saving data of interest
+ndays <- simlength*delT
 finalbalance <- c()
 balancedata <- list()
+
+if (arg$divs){
+	finaltotal <- c()
+	dividendsdata <- list()
+}
+
 for (simnum in 1:nsims){
 	#Simulate a single possible future
+	print_color(paste0('!!!!!!!!!!!!!!!!!!!!!!!!!!!!Simulating Portfolio ',simnum,'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'),'bblue')
 	simportfolio <- portfolio
 	names(simportfolio)[names(simportfolio) == 'Balance'] <- paste0('Sim',simnum,'.Balance')
 
+	#Find days when dividends will be paid out for regular schedules and it may differ between simulations to get more realistic simulations 
+	if (arg$divs){
+		simdividends <- dividends
+		names(simdividends)[names(simdividends) == 'Total'] <- paste0('Sim',simnum,'.Total')
+		
+		annual.divdays <- seq(from = 1, to = ndays, by = 251)
+		annual.divdays <- round(annual.divdays)
+		shift <- sample(0:250,1)
+		annual.divdays <- annual.divdays + shift
+
+		semiannual.divdays <- seq(from = 1, to = ndays, by = 251/2)
+		semiannual.divdays <- round(semiannual.divdays)
+		shift <- sample(0:floor(250/2),1)
+		semiannual.divdays <- semiannual.divdays + shift
+		
+		quart.divdays <- seq(from = 1, to = ndays, by = 251/4)
+		quart.divdays <- round(quart.divdays)
+		shift <- sample(0:floor(250/4),1)
+		quart.divdays <- quart.divdays + shift
+		
+		month.divdays <- seq(from = 1, to = ndays, by = 251/12)
+		month.divdays <- round(month.divdays)
+		shift <- sample(0:floor(250/12),1)
+		month.divdays <- month.divdays + shift
+	}
+	
 	for (d in 1:ndays){
 		#Simulate the gains for each position
 		newgains <- SimGain(tickers = TICKERS, holdings = holdings, correlations = corr)
 		newgains <- unlist(newgains)
 		temp <- c()
+		divpayvec <- c()
 		for (t in TICKERS){
-			temp <- c(temp, simportfolio[simportfolio$Day == d - 1, t]*(1 + newgains[t]))
+			if (arg$divs){
+				if (divdata[divdata$Tickers == t,'Frequency.Label'] == 'Annually'){
+					checkdiv <- annual.divdays
+				}else if (divdata[divdata$Tickers == t,'Frequency.Label'] == 'Semi-Annually'){
+					checkdiv <- semiannual.divdays
+				}else if (divdata[divdata$Tickers == t,'Frequency.Label'] == 'Quarterly'){
+					checkdiv <- quart.divdays
+				}else if (divdata[divdata$Tickers == t,'Frequency.Label'] == 'Monthly'){
+					checkdiv <- month.divdays
+				}else {
+					checkdiv <- c(0)
+					divpayvec <- c(divpayvec,0)
+				}
+				if (d %in% checkdiv){
+					divpay <- (simportfolio[simportfolio$Day == d - 1, t] * (divdata[divdata$Tickers == t,'Yield'] / divdata[divdata$Tickers == t,'Frequency']))
+					divpayvec <- c(divpayvec,divpay)
+					temp <- c(temp, (simportfolio[simportfolio$Day == d - 1, t]*(1 + newgains[t]) + divpay))
+				}else {
+					temp <- c(temp, simportfolio[simportfolio$Day == d - 1, t]*(1 + newgains[t]))
+					divpayvec <- c(divpayvec,0)
+				}
+			}else {
+				temp <- c(temp, simportfolio[simportfolio$Day == d - 1, t]*(1 + newgains[t]))
+			}
 		}
-		newtotal <- sum(temp)
-		newrow <- c(d,newtotal,temp)
+		newbalance <- sum(temp)
+		newrow <- c(d,newbalance,temp)
 		simportfolio <- rbind(simportfolio,newrow)
+		if (arg$divs){
+			newtotal <- sum(divpayvec)
+			newrow <- c(d,newtotal,divpayvec)
+			simdividends <- rbind(simdividends,newrow)
+		}
 	}
 	finalbalance <- c(finalbalance,last(simportfolio[[paste0('Sim',simnum,'.Balance')]]))
-	balancedata <- append(balancedata, list(simportfolio[,c('Day',paste0('Sim',simnum,'.Balance'))])) 
+	balancedata <- append(balancedata, list(simportfolio)) 
 	print(tail(simportfolio,10))
+	if (arg$divs){
+		simdividends <- simdividends[simdividends[[paste0('Sim',simnum,'.Total')]] > 0,]
+		finaltotal <- c(finaltotal,sum(simdividends[[paste0('Sim',simnum,'.Total')]]))
+		dividendsdata <- append(dividendsdata, list(simdividends)) 
+		print(tail(simdividends,10))
+	}
 }
 
 #Summarizing portfolio results and plotting all simulations together
@@ -235,10 +372,11 @@ median <- quantiles['50%']
 upperquart <- quantiles['75%']
 lowerquart <- quantiles['25%']
 
-
 #Gathering all plotting data together
 allportfolios <- Reduce(function(x,y) merge(x,y,all = TRUE), balancedata)
-plotdf <- melt(allportfolios, id = 'Day')
+meltcols <- colnames(allportfolios[,!(names(allportfolios) %in% c('Day',TICKERS))])
+plotdf <- melt(allportfolios, id = 'Day', measure.vars = meltcols)
+plotdf <- plotdf %>% na.omit(plotdf)
 plotends <- plotdf %>% filter(Day == ndays)
 print(plotends)
 
@@ -251,3 +389,16 @@ propabove <- nrow(plotends[plotends$value >= baseline,])/nrow(plotends)
 
 ggplot(data=plotdf, mapping=aes(x=Day,y=value,group=variable))+geom_line(color = 'blue', alpha=.5)+labs(title=paste0('Simulated Portfolio Balances'))+scale_x_continuous(name='Day', n.breaks=10)+scale_y_continuous(name='Balance', n.breaks=10)+geom_hline(yintercept=median, linetype='dashed', color = 'slategrey', alpha=.5)+annotate('text', size=3, hjust='inward', vjust=-1, x=1, y=median, label=paste('50%: ',round(median,2)), color='slategrey')+geom_hline(yintercept=upperquart, linetype='dashed', color = 'green3', alpha=.5)+annotate('text', size=3, hjust='inward', vjust=-1, x=1, y=upperquart, label=paste0('75%: ',round(upperquart,2)), color='green3')+geom_hline(yintercept=lowerquart, linetype='dashed', color = 'red', alpha=.5)+annotate('text', size=3, hjust='inward', vjust=-1, x=1, y=lowerquart, label=paste0('25%: ',round(lowerquart,2)), color='red')+geom_hline(yintercept=baseline, linetype='dashed', color = 'black', alpha=.5)+annotate('text', size=3, hjust='inward', vjust=-1, x=ndays, y=baseline, label=paste0('Proportion of simulations above 20% per year avg: ',round(propabove,2)), color='black')
 ggsave(file=paste0('PortfolioSimulator-',simlength,'years-',nsims,'sims.pdf'), path=paste0('plots/'))
+
+if (arg$divs){
+	print_color(paste0('================================================================================\n'),'bviolet')
+	print_color(paste0('=========================Simulated Dividend Results=============================\n'),'bviolet')
+	print_color(paste0('================================================================================\n'),'bviolet')
+	#Looking at dividend results
+	print_color(paste0('Final Dividend Total Quantiles:\n'),'bold')
+	divquant <- quantile(finaltotal)
+	print(divquant)
+
+	#Gathering all dividend data together
+	alldividends <- Reduce(function(x,y) merge(x,y,all = TRUE), dividendsdata)
+}
