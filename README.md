@@ -1,3 +1,7 @@
+######################################
+Archiving this repository as I am moving every project to separate repositories from now on
+######################################
+
 #MyGitProjects
 Here lies code for my various projects
 
